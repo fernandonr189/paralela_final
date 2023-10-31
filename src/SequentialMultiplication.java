@@ -2,7 +2,8 @@ public class SequentialMultiplication {
     public static int[][] multiplyMatrix(int[][] matrix, int factor) {
         int[][] newMatrix = new int[matrix.length][matrix[0].length];
         for(int i = 0; i < matrix.length; i++) {
-            newMatrix[i] = multiplyRow(matrix[i], factor);
+            int[] newArr = multiplyRow(matrix[i], factor);
+            newMatrix[i] = newArr;
         }
         return newMatrix;
     }

@@ -17,7 +17,7 @@ public class ForkJoinMultiplication extends RecursiveAction {
 
     @Override
     protected void compute() {
-        if((v_to - v_from) <= 100) {
+        if((v_to - v_from) <= 1000) {
             multiply(matrix, factor, v_from, v_to);
             return;
         }

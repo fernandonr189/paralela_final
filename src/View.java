@@ -1,11 +1,16 @@
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.text.DecimalFormat;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 
 enum Algorithm {
     NONE,
-    MERGESORT,
+    SEQUENTIAL,
     FORKJOIN,
     EXECUTE,
 }
@@ -16,11 +21,13 @@ public class View extends JFrame {
     private final JTextPane sortedTextPane;
     private final JTextField arraySizeTextField;
     private final JLabel selectedAlgorithmLabel;
-    private final JLabel elapsedTimeMergeSort;
+    private final JLabel elapsedTimeSequential;
     private final JLabel elapsedTimeForkJoin;
     private final JLabel elapsedTimeExecute;
     private final JLabel messageLabel;
     private Algorithm algorithm = Algorithm.NONE;
+    final DecimalFormat formatter = new DecimalFormat("#,###");
+
     public View(){
         try {
             UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
@@ -40,13 +47,13 @@ public class View extends JFrame {
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setSize(600, 480);
 
-        JButton mergeButton = new JButton("MergeSort");
-        mergeButton.setBounds(25, 60, 100, 25);
+        JButton sequentialButton = new JButton("Secuencial");
+        sequentialButton.setBounds(25, 60, 100, 25);
 
-        JButton forkJoinButton = new JButton("ForkJoin");
+        JButton forkJoinButton = new JButton("Execute");
         forkJoinButton.setBounds(25, 95, 100, 25);
 
-        JButton executeButton = new JButton("Execute");
+        JButton executeButton = new JButton("ForkJoin");
         executeButton.setBounds(25, 130, 100, 25);
 
         arraySizeTextField = new JTextField();
@@ -80,24 +87,24 @@ public class View extends JFrame {
         JScrollPane scrollPane2 = new JScrollPane(sortedTextPane);
         scrollPane2.setBounds(150, 200, 400, 150);
 
-        elapsedTimeMergeSort = new JLabel("");
-        elapsedTimeMergeSort.setBounds(25, 390, 400, 25);
-        elapsedTimeMergeSort.setForeground(Color.RED);
+        elapsedTimeSequential = new JLabel("");
+        elapsedTimeSequential.setBounds(25, 390, 400, 25);
+        elapsedTimeSequential.setForeground(Color.WHITE);
 
         elapsedTimeForkJoin = new JLabel("");
-        elapsedTimeForkJoin.setBounds(175, 390, 400, 25);
-        elapsedTimeForkJoin.setForeground(Color.RED);
+        elapsedTimeForkJoin.setBounds(225, 390, 400, 25);
+        elapsedTimeForkJoin.setForeground(Color.WHITE);
 
         elapsedTimeExecute = new JLabel("");
-        elapsedTimeExecute.setBounds(325, 390, 400, 25);
-        elapsedTimeExecute.setForeground(Color.RED);
+        elapsedTimeExecute.setBounds(425, 390, 400, 25);
+        elapsedTimeExecute.setForeground(Color.WHITE);
 
         messageLabel = new JLabel("");
         messageLabel.setBounds(150, 175, 400, 25);
         messageLabel.setForeground(Color.RED);
 
 
-        panel.add(mergeButton);
+        panel.add(sequentialButton);
         panel.add(arraySizeTextField);
         panel.add(forkJoinButton);
         panel.add(executeButton);
@@ -106,12 +113,12 @@ public class View extends JFrame {
         panel.add(startButton);
         panel.add(clearButton);
         panel.add(selectedAlgorithmLabel);
-        panel.add(elapsedTimeMergeSort);
+        panel.add(elapsedTimeSequential);
         panel.add(elapsedTimeForkJoin);
         panel.add(elapsedTimeExecute);
         panel.add(messageLabel);
 
-        mergeButton.addActionListener(e -> selectSortingAlgorithm(Algorithm.MERGESORT));
+        sequentialButton.addActionListener(e -> selectSortingAlgorithm(Algorithm.SEQUENTIAL));
 
         forkJoinButton.addActionListener(e -> selectSortingAlgorithm(Algorithm.FORKJOIN));
 
@@ -122,25 +129,52 @@ public class View extends JFrame {
             arraySizeTextField.setText("");
             sortedTextPane.setText("");
             unsortedTextPane.setText("");
-            elapsedTimeMergeSort.setText("");
+            elapsedTimeSequential.setText("");
             elapsedTimeForkJoin.setText("");
             elapsedTimeExecute.setText("");
+            messageLabel.setText("");
         });
 
         startButton.addActionListener(e -> {
+            int rows = Integer.parseInt(arraySizeTextField.getText());
+            int[][] matrix = MatrixUtilities.createRandomMatrix(10, rows * 25);
+
+            unsortedTextPane.setText(MatrixUtilities.getMatrixString(matrix));
+
             switch (algorithm) {
                 case NONE -> {
-                    sortedTextPane.setText("Seleccione un algoritmo!");
-                    return;
+                    messageLabel.setText("Seleccione un algoritmo!");
+                    break;
                 }
-                case MERGESORT -> {
-
-                }
-                case FORKJOIN -> {
-
+                case SEQUENTIAL -> {
+                    long start = System.nanoTime();
+                    int[][] newMatrix = SequentialMultiplication.multiplyMatrix(matrix, 2);
+                    long finish = System.nanoTime();
+                    long elapsed_time = finish - start;
+                    elapsedTimeSequential.setText("Secuencial: " + formatter.format(elapsed_time / 1000) + " Microsegundos");
+                    sortedTextPane.setText(MatrixUtilities.getMatrixString(newMatrix));
+                    break;
                 }
                 case EXECUTE -> {
-
+                    ForkJoinPool forkJoinPool = ForkJoinPool.commonPool();
+                    ForkJoinMultiplication forkJoinMultiplication = new ForkJoinMultiplication(matrix, 2, 0, matrix.length);
+                    long start = System.nanoTime();
+                    forkJoinPool.invoke(forkJoinMultiplication);
+                    long finish = System.nanoTime();
+                    long elapsed_time = finish - start;
+                    elapsedTimeExecute.setText("ForkJoin: " + formatter.format(elapsed_time / 1000) + " Microsegundos");
+                    sortedTextPane.setText(MatrixUtilities.getMatrixString(matrix));
+                    break;
+                }
+                case FORKJOIN -> {
+                    ExecutorService executorService = Executors.newWorkStealingPool();
+                    long start = System.nanoTime();
+                    ExecutorMultiplication.multiplyMatrix(matrix, 2, executorService);
+                    long finish = System.nanoTime();
+                    long elapsed_time = finish - start;
+                    elapsedTimeForkJoin.setText("Executor: " + formatter.format(elapsed_time / 1000) + " Microsegundos");
+                    sortedTextPane.setText(MatrixUtilities.getMatrixString(matrix));
+                    break;
                 }
             }
         });
@@ -150,7 +184,7 @@ public class View extends JFrame {
         this.algorithm = selected;
         switch (algorithm) {
             case NONE -> selectedAlgorithmLabel.setText("<html>Algoritmo<br>selecciónado:<br>Ninguno</html>");
-            case MERGESORT -> selectedAlgorithmLabel.setText("<html>Algoritmo<br>selecciónado:<br>MergeSort</html>");
+            case SEQUENTIAL -> selectedAlgorithmLabel.setText("<html>Algoritmo<br>selecciónado:<br>Secuencial</html>");
             case FORKJOIN -> selectedAlgorithmLabel.setText("<html>Algoritmo<br>selecciónado:<br>ForkJoin</html>");
             case EXECUTE -> selectedAlgorithmLabel.setText("<html>Algoritmo<br>selecciónado:<br>Execute</html>");
         }
